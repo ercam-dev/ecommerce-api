@@ -4,11 +4,13 @@
   "description": "REST API with Express, Sequelize and PostgreSQL",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "db:reset": "npx sequelize-cli db:drop && npx sequelize-cli db:create && npx sequelize-cli db:migrate && npx sequelize-cli db:seed:all"
   },
   "author": "Erick Camacho",
   "license": "ISC",
   "dependencies": {
+    "dotenv": "^8.2.0",
     "pg": "^8.4.1",
     "pg-hstore": "^2.3.3",
     "sequelize": "^6.3.5"
