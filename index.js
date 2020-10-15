@@ -3,7 +3,6 @@ const morgan = require('morgan');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const authRouter = require('./routes/auth');
-const User = require('./models/user');
 require('dotenv').config();
 
 const port = process.env.PORT || 8000;
@@ -16,7 +15,7 @@ app.use(express.json());
 // app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 app.use(cors());
-app.use(cookieParser);
+app.use(cookieParser());
 
 // routers
 app.use('/api/v1/users', authRouter);
