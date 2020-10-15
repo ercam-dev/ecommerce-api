@@ -67,15 +67,37 @@ const register = async (req, res) => {
     });
 
     res.status(201).json({ message: "Se ha agregado el usuario satisfactoriamente", user });
+  } catch (error) {
+    const errors = handleErrors(error);
+    res.status(400).json({ errors });
+  }       
+}
 
+const login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ where: { email } });
+    if (user) {
+      const auth = bcrypt.compareSync(password, user.password);
+      if (auth) {
+        const token = createToken(user);
+        res.cookie('jwt', token, { 
+          httpOnly: true, 
+          maxAge: maxAge * 1000 
+        });
+        res.status(200).json({ message: "Se ha iniciado sesión satisfactoriamente", user });
+      } else {
+        res.status(401).json('incorrect password');
+      }
+    } 
+    else {
+      res.status(401).json('incorrect email');
+    }
   } catch (error) {
     const errors = handleErrors(error);
     res.status(400).json({ errors });
   }
-}
-
-const login = (req, res) => {
-  res.json('login');
 }
 
 const resetPassword = async (req, res) => {
