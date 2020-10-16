@@ -1,6 +1,8 @@
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const { User } = require('../models');
 const jwt = require('jsonwebtoken');
+const { sendResetPasswordMail } = require('../middlewares/nodemailer');
 
 // handle errors
 const handleErrors = (err) => {
@@ -25,10 +27,12 @@ const handleErrors = (err) => {
 
   return errors;
 }
+// create random token
+const createUserToken = () => crypto.randomBytes(32).toString('base64');
 
 // create json web token
 const maxAge = 3 * 24 * 60 * 60;
-const createToken = (user) => {
+const createJWT = (user) => {
   return jwt.sign({
     id: user.id,
     firstName: user.firstName,
@@ -40,33 +44,34 @@ const createToken = (user) => {
 }
 
 const register = async (req, res) => { 
+  const {
+    firstName,
+    lastName,
+    email,
+    password
+  } = req.body;
+  console.log(req.body);
+  
   try {
-    const {
-      firstName,
-      lastName,
-      email,
-      password
-    } = req.body;
-    console.log(req.body);
-
     const hash = bcrypt.hashSync(password);
 
     const user = await User.create({
       firstName,
       lastName,
       email,
+      token: createUserToken(),
       password: hash,
       createdAt: new Date(),
       updatedAt: new Date()
     });
 
-    const token = createToken(user);
+    const token = createJWT(user);
     res.cookie('jwt', token, { 
       httpOnly: true, 
       maxAge: maxAge * 1000 
     });
 
-    res.status(201).json({ message: "Se ha agregado el usuario satisfactoriamente", user });
+    res.status(201).json({ message: "user created successfully", user });
   } catch (error) {
     const errors = handleErrors(error);
     res.status(400).json({ errors });
@@ -74,24 +79,23 @@ const register = async (req, res) => {
 }
 
 const login = async (req, res) => {
-  try {
-    const { email, password } = req.body;
+  const { email, password } = req.body;
 
+  try {
     const user = await User.findOne({ where: { email } });
     if (user) {
       const auth = bcrypt.compareSync(password, user.password);
       if (auth) {
-        const token = createToken(user);
+        const token = createJWT(user);
         res.cookie('jwt', token, { 
           httpOnly: true, 
           maxAge: maxAge * 1000 
         });
-        res.status(200).json({ message: "Se ha iniciado sesión satisfactoriamente", user });
+        res.status(200).json({ message: "logged in successfully", user });
       } else {
         res.status(401).json('incorrect password');
       }
-    } 
-    else {
+    } else {
       res.status(401).json('incorrect email');
     }
   } catch (error) {
@@ -101,11 +105,45 @@ const login = async (req, res) => {
 }
 
 const resetPassword = async (req, res) => {
-  res.json('reset-password');
+  const { email } = req.body;
+
+  try {
+    const user = await User.findOne({ where: { email } });
+    if (user) {
+      // send email to reset password
+      await sendResetPasswordMail(email, user.id, user.token);
+      res.status(200).json('email sent successfully');
+    } else {
+      res.status(401).json('email is not registered');
+    }
+  } catch (error) {
+    res.status(400).json('email could not be sent');
+  }
 }
 
-const updatePassword = (req, res) => {
-  res.json('update-password')
+const updatePassword = async (req, res) => {
+  const { id, token, password } = req.body;
+  try {
+    const user = await User.findOne({ where: { id } });
+    if (user) {
+      if (user.token === token) {
+        const hash = bcrypt.hashSync(password);
+
+        const updatedUser = await User.update({
+          password: hash,
+          token: createUserToken(),
+          updatedAt: new Date()
+        }, { 
+          returning: true,
+          where: { id }
+        });
+
+        return res.status(200).json({ message: 'password updated successfully', user: updatedUser});
+      } throw Error('incorrect token');
+    } throw Error('user not found');
+  } catch (error) {
+    res.status(400).json( error.message );
+  }
 }
 
 module.exports = {

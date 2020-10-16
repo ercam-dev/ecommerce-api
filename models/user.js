@@ -32,6 +32,10 @@ module.exports = (sequelize, DataTypes) => {
         len: [6, undefined]
       }
     },
+    token: {
+      allowNull: false,
+      type: DataTypes.STRING
+    },
     active: {
       allowNull: false,
       type: DataTypes.BOOLEAN,

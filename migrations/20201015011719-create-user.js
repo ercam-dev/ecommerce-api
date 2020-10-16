@@ -31,6 +31,10 @@ module.exports = {
           len: [6, undefined]
         }
       },
+      token: {
+        allowNull: false,
+        type: Sequelize.STRING
+      },
       active: {
         allowNull: false,
         type: Sequelize.BOOLEAN,
