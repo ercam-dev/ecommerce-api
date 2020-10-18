@@ -16,13 +16,13 @@ const sendResetPasswordMail = async (email, userId, token) => {
     html: `<h1>Restablecer tu contraseña</h1> 
     <a href="http://localhost:3000/update-password?user=${userId}&token=${token}">Da click aquí para restablecer tu contraseña</a>`
   }
-  // try {
+  try {
     const info = await transporter.sendMail(message);
     console.log(info);
     return info;
-  // } catch (error) {
-  //   console.log("email could not be sent");
-  // }
+  } catch (error) {
+    console.log(error);
+  }
 }
 
 //export default enviarCorreo

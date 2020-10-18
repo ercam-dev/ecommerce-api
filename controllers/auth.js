@@ -1,4 +1,3 @@
-const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { User } = require('../models');
 const jwt = require('jsonwebtoken');
@@ -8,30 +7,36 @@ const { sendResetPasswordMail } = require('../middlewares/nodemailer');
 const handleErrors = (err) => {
   console.error(err.name, err.message, err.errors);
   let errors = { email: '', password: '' };
+  
+  // incorrect email
+  if (err.message === 'incorrect email') {
+    errors.email = 'That email is not registered';
+  }
+
+  // incorrect password
+  if (err.message === 'incorrect password') {
+    errors.password = 'That password is incorrect';
+  }
 
   // duplicate email error
   if (err.name === 'SequelizeUniqueConstraintError') {
-    errors.email = 'that email is already registered';
+    errors.email = 'That email is already registered';
     return errors;
   }
 
   // validation errors
-  if (err.message.includes('user validation failed')) {
-    // console.log(err);
-    Object.values(err.errors).forEach(({ properties }) => {
-      // console.log(val);
-      // console.log(properties);
-      errors[properties.path] = properties.message;
-    });
+  if (err.name === 'SequelizeValidationError') {
+    let { path, message } = err.errors[0];
+    errors[path] = message; 
   }
 
   return errors;
 }
-// create random token
+// create random token for user
 const createUserToken = () => crypto.randomBytes(32).toString('base64');
 
 // create json web token
-const maxAge = 3 * 24 * 60 * 60;
+const maxAge = 3 * 24 * 60 * 60; // 3 days
 const createJWT = (user) => {
   return jwt.sign({
     id: user.id,
@@ -39,72 +44,46 @@ const createJWT = (user) => {
     lastName: user.lastName,
     email: user.email
   }, process.env.JWT_SECRET, {
-    expiresIn: '1hr'
+    expiresIn: maxAge
   });
 }
 
-const register = async (req, res) => { 
-  const {
-    firstName,
-    lastName,
-    email,
-    password
-  } = req.body;
-  console.log(req.body);
+module.exports.register = async (req, res) => { 
+  const { firstName, lastName, email, password } = req.body;
   
   try {
-    const hash = bcrypt.hashSync(password);
-
     const user = await User.create({
       firstName,
       lastName,
       email,
       token: createUserToken(),
-      password: hash,
-      createdAt: new Date(),
-      updatedAt: new Date()
+      password
     });
-
     const token = createJWT(user);
-    res.cookie('jwt', token, { 
-      httpOnly: true, 
-      maxAge: maxAge * 1000 
-    });
-
+    res.cookie('jwt', token, { httpOnly: true, maxAge: maxAge * 1000 });
     res.status(201).json({ message: "user created successfully", user });
-  } catch (error) {
-    const errors = handleErrors(error);
+  } 
+  catch (err) {
+    const errors = handleErrors(err);
     res.status(400).json({ errors });
   }       
 }
 
-const login = async (req, res) => {
+module.exports.login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const user = await User.findOne({ where: { email } });
-    if (user) {
-      const auth = bcrypt.compareSync(password, user.password);
-      if (auth) {
-        const token = createJWT(user);
-        res.cookie('jwt', token, { 
-          httpOnly: true, 
-          maxAge: maxAge * 1000 
-        });
-        res.status(200).json({ message: "logged in successfully", user });
-      } else {
-        res.status(401).json('incorrect password');
-      }
-    } else {
-      res.status(401).json('incorrect email');
-    }
+    const user = await User.login(email, password);
+    const token = createJWT(user.id);
+    res.cookie('jwt', token, { httpOnly: true, maxAge: maxAge * 1000 });
+    res.status(200).json({ message: "logged in successfully", user });
   } catch (error) {
     const errors = handleErrors(error);
     res.status(400).json({ errors });
   }
 }
 
-const resetPassword = async (req, res) => {
+module.exports.resetPassword = async (req, res) => {
   const { email } = req.body;
 
   try {
@@ -114,41 +93,36 @@ const resetPassword = async (req, res) => {
       await sendResetPasswordMail(email, user.id, user.token);
       res.status(200).json('email sent successfully');
     } else {
-      res.status(401).json('email is not registered');
+      res.status(401).json('That email is not registered');
     }
   } catch (error) {
     res.status(400).json('email could not be sent');
   }
 }
 
-const updatePassword = async (req, res) => {
+module.exports.updatePassword = async (req, res) => {
   const { id, token, password } = req.body;
   try {
     const user = await User.findOne({ where: { id } });
     if (user) {
       if (user.token === token) {
-        const hash = bcrypt.hashSync(password);
-
         const updatedUser = await User.update({
-          password: hash,
-          token: createUserToken(),
-          updatedAt: new Date()
+          password,
+          token: createUserToken()
         }, { 
           returning: true,
           where: { id }
         });
-
         return res.status(200).json({ message: 'password updated successfully', user: updatedUser});
       } throw Error('incorrect token');
     } throw Error('user not found');
-  } catch (error) {
-    res.status(400).json( error.message );
+  } catch (err) {
+    res.status(400).json( err.message );
   }
 }
 
-module.exports = {
-  register,
-  login,
-  resetPassword,
-  updatePassword
-};
+module.exports.logout = (req, res) => {
+  res.cookie('jwt', '', { maxAge: 1 });
+  res.status(200).json('Logged out successfully');
+  // res.redirect('/');
+}
