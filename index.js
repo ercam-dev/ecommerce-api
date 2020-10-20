@@ -2,12 +2,13 @@ const express = require('express');
 const morgan = require('morgan');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
-const authRouter = require('./routes/auth');
 require('dotenv').config();
 
-const port = process.env.PORT || 8000;
+// import routers
+const authRouter = require('./routes/auth');
+const userRouter = require('./routes/user');
 
-// express app
+const port = process.env.PORT || 8000;
 const app = express();
 
 // middlewares
@@ -19,6 +20,7 @@ app.use(cookieParser());
 
 // routers
 app.use('/api/v1/users', authRouter);
+app.use('/api/v1/users', userRouter);
 
 // listening to requests
 app.listen(port, () => {

@@ -5,7 +5,6 @@ const { sendResetPasswordMail } = require('../middlewares/nodemailer');
 
 // handle errors
 const handleErrors = (err) => {
-  console.error(err.name, err.message, err.errors);
   let errors = { email: '', password: '' };
   
   // incorrect email
