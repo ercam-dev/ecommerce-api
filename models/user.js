@@ -6,7 +6,15 @@ const {
 module.exports = (sequelize, DataTypes) => {
   class User extends Model {
     static associate(models) {
-      // define association here
+      User.hasMany(models.SalesOrder, {
+        foreignKey: 'userId',
+        as: 'SalesOrder'
+      });
+      User.belongsToMany(models.Role, {
+        foreignKey: 'userId',
+        through: 'UserRoles',
+        as: 'Role'
+      })
     }
     static login = async (email, password) => {
       const user = await this.findOne({ where: { email } });
